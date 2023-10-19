@@ -70,30 +70,39 @@ def process_json_data(data_json_dir, mode):
             mean_75_neg1 = df['mean_-1'].quantile(0.75)
             mean_75_0 = df['mean_0'].quantile(0.75)
             mean_75_1 = df['mean_1'].quantile(0.75)
+
+            sd_25_neg1 = df['sd_-1'].quantile(0.25)
+            sd_25_0= df['sd_0'].quantile(0.25)
+            sd_25_1= df['sd_1'].quantile(0.25)
+
+            sd_50_neg1 = df['sd_-1'].quantile(0.5)
+            sd_50_0= df['sd_0'].quantile(0.5)
+            sd_50_1= df['sd_1'].quantile(0.5)
+
+            sd_75_neg1 = df['sd_-1'].quantile(0.75)
+            sd_75_0 = df['sd_0'].quantile(0.75)
+            sd_75_1 = df['sd_1'].quantile(0.75)
             
             df_list.append([transcript_id,transcript_position,five_mer,weighted_mean_neg1,weighted_mean_0,weighted_mean_1,weighted_sd_neg1,
-                            weighted_sd_0,weighted_sd_1,mean_25_neg1,mean_25_0,mean_25_1,mean_50_neg1,mean_50_0,mean_50_1,mean_75_neg1,
-                            mean_75_0,mean_75_1])
-            """
-            df_list.append([transcript_id,transcript_position,five_mer,weighted_mean_neg1,weighted_mean_0,weighted_mean_1,weighted_sd_neg1,
-                            weighted_sd_0,weighted_sd_1])
-            """
+                    weighted_sd_0,weighted_sd_1,mean_25_neg1,mean_25_0,mean_25_1,mean_50_neg1,mean_50_0,mean_50_1,mean_75_neg1,
+                    mean_75_0,mean_75_1,sd_25_neg1,sd_25_0,sd_25_1,sd_50_neg1,sd_50_0,sd_50_1,sd_75_neg1,sd_75_0,sd_75_1])
         df = pd.DataFrame(df_list)
         df.columns = ['transcript_id','transcript_position','five_mer','weighted_mean_neg1','weighted_mean_0','weighted_mean_1','weighted_sd_neg1',
-                'weighted_sd_0','weighted_sd_1','mean_25_neg1','mean_25_0','mean_25_1','mean_50_neg1','mean_50_0','mean_50_1','mean_75_neg1',
-                    'mean_75_0','mean_75_1']
+                    'weighted_sd_0','weighted_sd_1','mean_25_neg1','mean_25_0','mean_25_1','mean_50_neg1','mean_50_0','mean_50_1','mean_75_neg1',
+                    'mean_75_0','mean_75_1','sd_25_neg1','sd_25_0','sd_25_1','sd_50_neg1','sd_50_0','sd_50_1','sd_75_neg1','sd_75_0','sd_75_1']
     return df
 
 
 def train_test_split_by_geneid(data_df, data_label_df, train_test_split_proportion):
-        unique_ids = pd.Series(data_label_df['gene_id'].unique())
-        train_gene_id = unique_ids.sample(int(len(unique_ids)*train_test_split_proportion), random_state = 4266)
-        y_train = data_label_df[data_label_df['gene_id'].isin(train_gene_id)]
-        y_test = data_label_df[~data_label_df['gene_id'].isin(train_gene_id)]
-        x_train = data_df[data_df['transcript_id'].isin(y_train['transcript_id'])]
-        x_train = x_train.sample(frac=1).reset_index(drop=True) # Shuffle training data
-        x_test = data_df[~data_df['transcript_id'].isin(y_train['transcript_id'])]
-        return x_train, x_test, y_train, y_test
+    unique_ids = pd.Series(data_label_df['gene_id'].unique())
+    train_gene_id = unique_ids.sample(int(len(unique_ids)*train_test_split_proportion), random_state = 4266)
+    y_train = data_label_df[data_label_df['gene_id'].isin(train_gene_id)]
+    y_test = data_label_df[~data_label_df['gene_id'].isin(train_gene_id)]
+    x_train = data_df[data_df['transcript_id'].isin(y_train['transcript_id'])]
+    x_train = x_train.sample(frac=1).reset_index(drop=True) # Shuffle training data
+    x_test = data_df[~data_df['transcript_id'].isin(y_train['transcript_id'])]
+    x_test = x_test.sample(frac = 1).reset_index(drop = True)
+    return x_train, x_test, y_train, y_test
 
 def xg_generate_features_old(data_df, data_label_info):
     data_df[[f"readings_{i}" for i in range(9)]] = pd.DataFrame(data_df['readings'].tolist(), index = data_df.index)
@@ -170,6 +179,7 @@ def xg_dataprep(data_json_dir, data_info_dir, output_dir, mode):
     #Train - test split by geneid
     train_test_split_proportion = 0.8
     df_train, df_valid,  data_info_train, data_info_valid = train_test_split_by_geneid(df, data_info, train_test_split_proportion)
+    
 
     if mode == "old":
         df_train = xg_generate_features_old(df_train, data_info_train)
@@ -177,8 +187,7 @@ def xg_dataprep(data_json_dir, data_info_dir, output_dir, mode):
     elif mode == "new":
         df_train = xg_generate_features_new(df_train, data_info_train)
         df_valid = xg_generate_features_new(df_valid, data_info_valid)
-    
-    
+
     df_valid.to_csv(f'{output_dir}/label_df_valid.csv', index = False)
     df_train.to_csv(f'{output_dir}/label_df_train.csv', index = False)
     return
@@ -286,6 +295,7 @@ def zac_dataprep(data_json_dir, data_info_dir, output_dir):
 
 def train_model(data_dir, sklearn_model):
     train_df = pd.read_csv(data_dir)
+    train_df = train_df.drop(columns = ['transcript_id', 'transcript_position','gene_id','five_mer'])
     x_train, y_train = train_df[[i for i in train_df.columns if i!='label']],train_df['label']
     sklearn_model.fit(x_train,y_train)
     return sklearn_model
@@ -335,21 +345,39 @@ def evaluate_model(y_pred, y_test):
 
 
 
-def full_pipeline(data_json_dir, data_info_dir, output_dir,sklearn_model, who_mode):
+
+def full_pipeline(data_json_dir, data_info_dir, output_dir,sklearn_model, who_mode, prefit, processed):
     if who_mode =="xg_old":
         xg_dataprep(data_json_dir, data_info_dir, output_dir, "old")
     elif who_mode == "xg_new":
         xg_dataprep(data_json_dir, data_info_dir, output_dir, "new")
     elif who_mode == "zac":
         zac_dataprep(data_json_dir, data_info_dir, output_dir)
-    
-    sklearn_model = train_model(f"{output_dir}/label_df_train.csv",sklearn_model)
+    if not prefit:
+        sklearn_model = train_model(f"{output_dir}/label_df_train.csv",sklearn_model)
 
     #evaluate model and plot graphs
     test_df = pd.read_csv(f"{output_dir}/label_df_valid.csv")
+    test_df = test_df.drop(columns = ['transcript_id', 'transcript_position','gene_id','five_mer'])
     x_test,y_test = test_df[[i for i in test_df.columns if i!='label']],test_df['label']
     # y_pred = sklearn_model.predict(x_test)
     y_pred_prob = sklearn_model.predict_proba(x_test)
     evaluate_model(y_pred_prob[:, 1], y_test)
 
     return sklearn_model
+
+def prediction_pipeline(test_df_dir, model, scaler = None):
+    test_df = pd.read_csv(test_df_dir)
+    test_df = test_df.drop(columns = ['transcript_id', 'transcript_position','gene_id','five_mer'])
+    x_test,y_test = test_df[[i for i in test_df.columns if i!='label']],test_df['label']
+    if scaler:
+        x_test = scaler.transform(x_test)
+    try:
+        y_pred_prob = model.predict_proba(x_test)
+    except:
+        y_pred_prob = model.predict(x_test)
+        evaluate_model(y_pred_prob, y_test)
+        return
+
+    evaluate_model(y_pred_prob[:, 1], y_test)
+
