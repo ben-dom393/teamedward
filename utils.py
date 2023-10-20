@@ -202,9 +202,11 @@ def zac_generate_features(data_df, data_label_info, is_test):
         length = len(row[3])
         if length < min_length:
             min_length = length
+    
+    data_df['transcript_position'] = data_df['transcript_position'].astype(int)
     full_data = data_df.merge(data_label_info, on = ['transcript_position','transcript_id'])
-    positive_data = full_data[full_data['label']=='1']
-    negative_data = full_data[full_data['label']=='0']
+    positive_data = full_data[full_data['label']== 1]
+    negative_data = full_data[full_data['label']== 0]
 
     if not is_test:
         random.seed(4266)
@@ -256,7 +258,7 @@ def zac_generate_features(data_df, data_label_info, is_test):
 
     df = df.rename(columns=column_mapping)
     # df = df.drop(columns = ["label","transcript_id","gene_id"])
-    df = df.drop(columns = ["transcript_id","gene_id"])#try adding in transcript_position to remove also
+    # df = df.drop(columns = ["transcript_id","gene_id"])#try adding in transcript_position to remove also
     # Define the possible gene types
     gene_types = ['A', 'C', 'T', 'G']
 
@@ -267,12 +269,14 @@ def zac_generate_features(data_df, data_label_info, is_test):
             df[col_name] = (df['5-mers'].str[position] == gene_type).astype(int)  # Convert to 1 or 0
 
     # Drop the original "5-mers" column and other useless positions
-    columns_to_drop = ['5-mers', '5-mer-3_A', '5-mer-3_C', '5-mer-3_T', '5-mer-3_G',
+    columns_to_drop = ['5-mer-3_A', '5-mer-3_C', '5-mer-3_T', '5-mer-3_G',
                    '5-mer-4_A', '5-mer-4_C', '5-mer-4_T', '5-mer-4_G',
                    '5-mer-1_C', '5-mer-2_C', '5-mer-2_T', '5-mer-5_G',]
 
     # Drop the specified columns
     df = df.drop(columns=columns_to_drop)
+    # rename 5-mers to  "five-mer" so that dropping in train_model has no error
+    df = df.rename(columns={'5-mers': 'five_mer'})
     return df
 
 
