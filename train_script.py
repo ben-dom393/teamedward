@@ -90,21 +90,15 @@ def encode_nucleotides(df):
         col_name = f'5-mer_window_{i-1}'
         categorical_columns.append(col_name)
         df[col_name] =  df['nucleotide_seq'].map(lambda x:x[i:i+WINDOW_SIZE])
-    # One Hot Encode these categorical columns
-    encoder = OneHotEncoder()
-    df_categorical = df[categorical_columns]
-    ohe_columns = encoder.fit_transform(df_categorical)
-    ohe_df = pd.DataFrame(ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
-    # Join these columns back to the original dataframe, removing the original columns
-    df_encoded = pd.concat([df.drop(columns = categorical_columns),ohe_df], axis = 1)
+
     # Generates a column showing the frequency of each nucleotide in the sequence
     nucleotides = ['A','C','G','T']
     for nuc in nucleotides:
-        df_encoded[f'{nuc}_freq'] = df_encoded['nucleotide_seq'].map(lambda x:x.count(nuc))
+        df[f'{nuc}_freq'] = df['nucleotide_seq'].map(lambda x:x.count(nuc))
 
-    return df_encoded
+    return df, categorical_columns
 
-def train_test_split(df_encoded, data_info, ratio = 0.1):
+def train_test_split(df, data_info, ratio = 0.1):
     """
     train_test_split by gene_id, default ratio=0.1 (10% of the dataset used as test)
     """
@@ -115,14 +109,17 @@ def train_test_split(df_encoded, data_info, ratio = 0.1):
     data_info_train = data_info[data_info['gene_id'].isin(train_gene_id)]
     data_info_test = data_info[~data_info['gene_id'].isin(train_gene_id)]
     
-    # Join with df_encoded
-    df_encoded['transcript_position'] = df_encoded['transcript_position'].astype(int)
-    df_train = pd.merge(data_info_train, df_encoded, on = ['transcript_id','transcript_position'])
-    df_test = pd.merge(data_info_test, df_encoded, on = ['transcript_id','transcript_position'])
-    print(f"train_test_split working: {df_train.shape[0]+df_test.shape[0]==df_encoded.shape[0]} ")
+    # Join with df
+    df['transcript_position'] = df['transcript_position'].astype(int)
+    df_train = pd.merge(data_info_train, df, on = ['transcript_id','transcript_position'])
+    df_test = pd.merge(data_info_test, df, on = ['transcript_id','transcript_position'])
+
+   
+    #Sanity Check
+    print(f"train_test_split working: {df_train.shape[0]+df_test.shape[0]==df.shape[0]} ")
     return df_train, df_test
 
-def prepare_dataset_for_training(df_train, df_test):
+def prepare_dataset_for_training(df_train, df_test, categorical_columns):
     """
     Split into X and y, and scale X
     """
@@ -132,15 +129,29 @@ def prepare_dataset_for_training(df_train, df_test):
     X_test = df_test[[col for col in X_train.columns]]
     y_test = df_test['label']
 
+    #One Hot Encode these categorical columns
+    encoder = OneHotEncoder(handle_unknown='ignore')
+    X_train_categorical = X_train[categorical_columns]
+    train_ohe_columns = encoder.fit_transform(X_train_categorical)
+    train_ohe_df = pd.DataFrame(train_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
+    # Join these columns back to the original dataframe, removing the original columns
+    X_train_encoded = pd.concat([X_train.drop(columns = categorical_columns),train_ohe_df], axis = 1)
+
+    #Repeat with Test columns
+    X_test_categorical = X_test[categorical_columns]
+    test_ohe_columns = encoder.transform(X_test_categorical)
+    test_ohe_df = pd.DataFrame(test_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
+    X_test_encoded = pd.concat([X_test.drop(columns = categorical_columns),test_ohe_df], axis = 1)
+
     # Scale input features
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    X_train_scaled = scaler.fit_transform(X_train_encoded)
+    X_test_scaled = scaler.transform(X_test_encoded)
 
     #Sanity check
     print(f"prepare_dataset_for_training working: {'label' not in X_train.columns}")
 
-    return X_train_scaled, y_train, X_test_scaled, y_test, scaler
+    return X_train_scaled, y_train, X_test_scaled, y_test, scaler, encoder
 
 #Hyperparamters
 INITIAL_LEARNING_RATE = 0.001
@@ -148,8 +159,8 @@ L2_REG_STRENGTH= 0.0001
 BATCH_SIZE = 32 
 ACTIVATION = "relu"
 NUM_NODES = 64
-PATIENCE = 10
-EPOCHS = 40
+PATIENCE = 20
+EPOCHS = 200
 
 def initialize_model(X_train_scaled):
     """
@@ -177,6 +188,7 @@ def calculate_class_weights(y_train):
     weight_for_0 = (1 / neg) * (total / 2.0)
     weight_for_1 = (1 / pos) * (total / 2.0)
     class_weights = {0: weight_for_0, 1: weight_for_1}
+    #Sanity Check
     print(f"calculate_class_weights working: {weight_for_0<weight_for_1}")
     return class_weights
 
@@ -232,15 +244,16 @@ def main():
     print("=====Preprocessing JSON data=====")
     dictlist = parse_json_data(args.json_data_dir)
     df = summarise_json_data(dictlist)
-    df_encoded = encode_nucleotides(df)
+    df, categorical_columns = encode_nucleotides(df)
     print("=====Training Model=====")
     data_info = pd.read_csv(args.data_info_dir)
-    df_train, df_test = train_test_split(df_encoded, data_info)
-    X_train_scaled, y_train, X_test_scaled, y_test, fitted_scaler = prepare_dataset_for_training(df_train, df_test)
+    df_train, df_test = train_test_split(df, data_info)
+    X_train_scaled, y_train, X_test_scaled, y_test, fitted_scaler, fitted_encoder = prepare_dataset_for_training(df_train, df_test, categorical_columns)
     model = initialize_model(X_train_scaled)
     fitted_model = fit_model(model,X_train_scaled, y_train, X_test_scaled, y_test)
     fitted_model.save('fitted_model.h5',save_format='h5')
     dump(fitted_scaler,open('fitted_scaler.pkl','wb'))
+    dump(fitted_encoder,open('fitted_encoder.pkl','wb'))
 
 if __name__ == "__main__":
     main()

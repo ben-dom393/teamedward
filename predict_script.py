@@ -87,29 +87,29 @@ def encode_nucleotides(df):
         col_name = f'5-mer_window_{i-1}'
         categorical_columns.append(col_name)
         df[col_name] =  df['nucleotide_seq'].map(lambda x:x[i:i+WINDOW_SIZE])
-    # One Hot Encode these categorical columns
-    encoder = OneHotEncoder()
-    df_categorical = df[categorical_columns]
-    ohe_columns = encoder.fit_transform(df_categorical)
-    ohe_df = pd.DataFrame(ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
-    # Join these columns back to the original dataframe, removing the original columns
-    df_encoded = pd.concat([df.drop(columns = categorical_columns),ohe_df], axis = 1)
+
     # Generates a column showing the frequency of each nucleotide in the sequence
     nucleotides = ['A','C','G','T']
     for nuc in nucleotides:
-        df_encoded[f'{nuc}_freq'] = df_encoded['nucleotide_seq'].map(lambda x:x.count(nuc))
+        df[f'{nuc}_freq'] = df['nucleotide_seq'].map(lambda x:x.count(nuc))
 
-    return df_encoded
+    return df, categorical_columns
 
-def prepare_dataset_for_prediction(df_test, scaler):
+
+def prepare_dataset_for_prediction(df_test, scaler, encoder, categorical_columns):
     """
     Drop irrelevant columns and scale input features
     """
+    
     # Extract input features
     X_test = df_test.drop(columns = ['transcript_id','transcript_position','nucleotide_seq'])
-
+    #One hot Encode
+    X_test_categorical = X_test[categorical_columns]
+    test_ohe_columns = encoder.transform(X_test_categorical)
+    test_ohe_df = pd.DataFrame(test_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
+    X_test_encoded = pd.concat([X_test.drop(columns = categorical_columns),test_ohe_df], axis = 1)
     # Scale input features
-    X_test_scaled = scaler.transform(X_test)
+    X_test_scaled = scaler.transform(X_test_encoded)
 
     return X_test_scaled
 
@@ -119,6 +119,7 @@ def main():
     parser.add_argument("json_data_dir",help = "File path for RNA-seq data (.json)")
     parser.add_argument("-m","--model", help = "File path for fitted model object (.h5)")
     parser.add_argument("-s","--scaler", help = "File path for fitted scaler object (.pkl)")
+    parser.add_argument("-e","--encoder",help = "File path for fitted one-hot encoder object (.pkl)")
     args = parser.parse_args()
 
     if not args.model:
@@ -132,14 +133,21 @@ def main():
         scaler_file = open(args.scaler, 'rb')
     scaler = pickle.load(scaler_file)
 
+    if not args.encoder:
+        encoder_file = open('models/fitted_encoder.pkl','rb')
+    else:
+        encoder_file = open(args.encoder,'rb')
+    encoder = pickle.load(encoder_file)
+    
+
     print("=====Preprocessing JSON data=====")
     dictlist = parse_json_data(args.json_data_dir)
     df = summarise_json_data(dictlist)
-    df_encoded = encode_nucleotides(df)
-    X_test_scaled = prepare_dataset_for_prediction(df_encoded, scaler)
+    df, categorical_columns = encode_nucleotides(df)
+    X_test_scaled = prepare_dataset_for_prediction(df, scaler, encoder, categorical_columns)
     print("=====Generating Predictions=====")
-    df_encoded['score'] = model.predict(X_test_scaled)
-    prediction_df = df_encoded[['transcript_id','transcript_position','score']]
+    df['score'] = model.predict(X_test_scaled)
+    prediction_df = df[['transcript_id','transcript_position','score']]
     prediction_df.to_csv('predictions.csv', index = False)
 
 
