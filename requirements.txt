@@ -1,6 +1,7 @@
 tensorflow
-tqdm
+scikit-learn
 pandas
 numpy
-scikit-learn
+tqdm
+
 
