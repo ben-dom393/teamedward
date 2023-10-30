@@ -19,54 +19,81 @@ def parse_json_data(json_data_dir):
             dictlist.append(json.loads(jsonobj))
     return dictlist
 
-def get_weighted_readings(summarized_features,readings_df):
+def get_weighted_readings(summarized_features, readings_array):
     """
     Get Weighted Mean and SD
     """
-    positions = ['-1','0','1']
-    for pos in positions:
+    positions = ['-1', '0', '1']
+    weighted_means = np.zeros(3)
+    weighted_sds = np.zeros(3)
+    
+    for pos_idx, pos in enumerate(positions):
+        dwell_time_col = readings_array[:, pos_idx * 3]
+        mean_col = readings_array[:, pos_idx * 3 + 2]
+        sd_col = readings_array[:, pos_idx * 3 + 1]
         
-        summarized_features[f'weighted_mean_{pos}'] = (readings_df[f'dwell_time_{pos}']*readings_df[f'mean_{pos}']).sum()/\
-            readings_df[f'dwell_time_{pos}'].sum()
-        summarized_features[f'weighted_sd_{pos}'] = np.sqrt((readings_df[f'sd_{pos}']*readings_df[f'sd_{pos}']*(readings_df[f'dwell_time_{pos}'])).sum()/\
-                                                            readings_df[f'dwell_time_{pos}'].sum())
+        total_dwell_time = dwell_time_col.sum()
+        
+        weighted_means[pos_idx] = (dwell_time_col * mean_col).sum() / total_dwell_time
+        weighted_sds[pos_idx] = np.sqrt((sd_col * sd_col * dwell_time_col).sum() / total_dwell_time)
+    
+    for pos_idx, pos in enumerate(positions):
+        summarized_features[f'weighted_mean_{pos}'] = weighted_means[pos_idx]
+        summarized_features[f'weighted_sd_{pos}'] = weighted_sds[pos_idx]
+    
     return summarized_features
 
-def get_readings_quantiles(summarized_features, readings_df):
+def get_readings_quantiles(summarized_features, readings_array):
     """
-    Get Mean and SD at 25th, 50th and 70th percentile
+    Get Mean and SD at 25th, 50th, and 75th percentile
     """
-    positions = ['-1','0','1']
-    quantiles = [25,50,75]
-    for pos in positions:
-        for quant in quantiles:
-            summarized_features[f'mean_{quant}_{pos}'] = readings_df[f'mean_{pos}'].quantile(quant/100)
-            summarized_features[f'sd_{quant}_{pos}'] = readings_df[f'sd_{pos}'].quantile(quant/100)
+    positions = ['-1', '0', '1']
+    quantiles = [25, 50, 75]
+    
+    for pos_idx, pos in enumerate(positions):
+        mean_col = readings_array[:, pos_idx * 3 + 2]
+        sd_col = readings_array[:, pos_idx * 3 + 1]
         
+        for quant in quantiles:
+            quantile_value = np.percentile(mean_col, quant)
+            summarized_features[f'mean_{quant}_{pos}'] = quantile_value
+            summarized_features[f'sd_{quant}_{pos}'] = np.percentile(sd_col, quant)
+    
     return summarized_features
 
 def summarise_json_data(dictlist):
     """
     Summarise the list of readings, obtaining the weighted mean (weighed by 
-    dwell time), 25th, 50th and 75th percentile of the mean and sd
+    dwell time), 25th, 50th, and 75th percentile of the mean and sd
 
     Returns a pandas dataframe
     """
     df_list = []
+    
     for i in tqdm(dictlist):
         transcript_id = list(i.keys())[0]
         transcript_position = list(i[transcript_id].keys())[0]
         nucleotide_seq = list(i[transcript_id][transcript_position].keys())[0]
         readings = i[transcript_id][transcript_position][nucleotide_seq]
-        readings_df = pd.DataFrame(readings)
-        readings_df.columns = ['dwell_time_-1','sd_-1','mean_-1','dwell_time_0','sd_0','mean_0','dwell_time_1','sd_1','mean_1']
+        
+        # Create a NumPy array from readings
+        readings_array = np.array(readings)
+        
         summarized_features = {}
-        summarized_features = get_weighted_readings(summarized_features, readings_df)
-        summarized_features = get_readings_quantiles(summarized_features, readings_df)
-        df_list.append([transcript_id,transcript_position,nucleotide_seq]+[summarized_features[i] for i in summarized_features])
+        summarized_features = get_weighted_readings(summarized_features, readings_array)
+        summarized_features = get_readings_quantiles(summarized_features, readings_array)
+        
+        # Convert the list to include transcript information and features
+        row = [transcript_id, transcript_position, nucleotide_seq]
+        for feature in summarized_features.values():
+            row.append(feature)
+        
+        df_list.append(row)
+    
     # Convert list of lists into pandas dataframe
-    df = pd.DataFrame(df_list)
-    df.columns = ['transcript_id','transcript_position','nucleotide_seq']+[i for i in summarized_features]
+    columns = ['transcript_id', 'transcript_position', 'nucleotide_seq']
+    columns += [f for f in summarized_features]
+    df = pd.DataFrame(df_list, columns=columns)
     return df
 
 def encode_nucleotides(df):
