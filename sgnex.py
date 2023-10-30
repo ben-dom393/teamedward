@@ -123,7 +123,7 @@ def encode_nucleotides(df):
     return df, categorical_columns
 
 
-def prepare_dataset_for_prediction(df_test, scaler, encoder, categorical_columns):
+def prepare_dataset_for_prediction(df_test, scaler, encoder, categorical_columns, intermediate_fname):
     """
     Drop irrelevant columns and scale input features
     """
@@ -135,48 +135,47 @@ def prepare_dataset_for_prediction(df_test, scaler, encoder, categorical_columns
     test_ohe_columns = encoder.transform(X_test_categorical)
     test_ohe_df = pd.DataFrame(test_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
     X_test_encoded = pd.concat([X_test.drop(columns = categorical_columns),test_ohe_df], axis = 1)
+    X_test_encoded.to_csv(intermediate_fname, index=False)
     # Scale input features
     X_test_scaled = scaler.transform(X_test_encoded)
 
     return X_test_scaled
 
 
-def main():
-    parser = argparse.ArgumentParser(description = "Generate predictions for RNA-seq data")
-    parser.add_argument("json_data_dir",help = "File path for RNA-seq data (.json)")
-    parser.add_argument("-m","--model", help = "File path for fitted model object (.h5)")
-    parser.add_argument("-s","--scaler", help = "File path for fitted scaler object (.pkl)")
-    parser.add_argument("-e","--encoder",help = "File path for fitted one-hot encoder object (.pkl)")
-    args = parser.parse_args()
+datasets = ['SGNex_A549_directRNA_replicate5_run1_data','SGNex_K562_directRNA_replicate5_run1_data',
+            'SGNex_K562_directRNA_replicate4_run1_data',"SGNex_K562_directRNA_replicate6_run1_data",
+            "SGNex_MCF7_directRNA_replicate3_run1_data","SGNex_MCF7_directRNA_replicate4_run1_data",
+            "SGNex_Hct116_directRNA_replicate3_run4_data","SGNex_Hct116_directRNA_replicate3_run1_data",
+            "SGNex_A549_directRNA_replicate6_run1_data","SGNex_Hct116_directRNA_replicate4_run3_data",
+            "SGNex_HepG2_directRNA_replicate6_run1_data","SGNex_HepG2_directRNA_replicate5_run2_data"]
 
-    if not args.model:
-        model = keras.models.load_model('models/fitted_model.h5')
-    else:
-        model = keras.models.load_model(args.model)
 
-    if not args.scaler:
-        scaler_file = open('models/fitted_scaler.pkl','rb')
-    else:
-        scaler_file = open(args.scaler, 'rb')
-    scaler = pickle.load(scaler_file)
-
-    if not args.encoder:
-        encoder_file = open('models/fitted_encoder.pkl','rb')
-    else:
-        encoder_file = open(args.encoder,'rb')
-    encoder = pickle.load(encoder_file)
+model = keras.models.load_model('./models/fitted_model.h5')
+scaler_file = open('models/fitted_scaler.pkl','rb')
+scaler = pickle.load(scaler_file)
+encoder_file = open('models/fitted_encoder.pkl','rb')
+encoder = pickle.load(encoder_file)
     
-
+for indx, fname in enumerate(datasets):
+    print(f"Currently at {fname}, index {indx}")
     print("=====Preprocessing JSON data=====")
-    dictlist = parse_json_data(args.json_data_dir)
+    json_data_dir = f"./data/sgnex/raw_json/{fname}.json"
+    dictlist = parse_json_data(json_data_dir)
+    print("Doing intense numpy calculations")
     df = summarise_json_data(dictlist)
+    print("Encoding df")
     df, categorical_columns = encode_nucleotides(df)
-    X_test_scaled = prepare_dataset_for_prediction(df, scaler, encoder, categorical_columns)
+    print("Scaling DF")
+    intermediate_fname = f"./data/sgnex/xg_process/{fname}_xg_processed.csv"
+    X_test_scaled = prepare_dataset_for_prediction(df, scaler, encoder, categorical_columns, intermediate_fname)
     print("=====Generating Predictions=====")
     df['score'] = model.predict(X_test_scaled)
     prediction_df = df[['transcript_id','transcript_position','score']]
-    prediction_df.to_csv('predictions.csv', index = False)
+    prediction_df.to_csv(f'./data/sgnex/predictions/unfiltered_predictions/{fname}_predictions.csv', index = False)
+    
+    del dictlist
+    del df
+    del categorical_columns
+    del X_test_scaled
+    del prediction_df
 
-
-if __name__ == "__main__":
-    main()
