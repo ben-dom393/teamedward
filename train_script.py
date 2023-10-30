@@ -27,13 +27,14 @@ def get_weighted_readings(summarized_features, readings_array):
     Get Weighted Mean and SD
     """
     positions = ['-1', '0', '1']
-    weighted_means = np.zeros(3)
-    weighted_sds = np.zeros(3)
+    weighted_means = np.zeros(len(positions))
+    weighted_sds = np.zeros(len(positions))
+    NUM_FEATURES = 3 #Dwell time, SD, Mean
     
     for pos_idx, pos in enumerate(positions):
-        dwell_time_col = readings_array[:, pos_idx * 3]
-        mean_col = readings_array[:, pos_idx * 3 + 2]
-        sd_col = readings_array[:, pos_idx * 3 + 1]
+        dwell_time_col = readings_array[:, pos_idx * NUM_FEATURES]
+        sd_col = readings_array[:, pos_idx * NUM_FEATURES + 1]
+        mean_col = readings_array[:, pos_idx * NUM_FEATURES + 2]
         
         total_dwell_time = dwell_time_col.sum()
         
@@ -52,14 +53,13 @@ def get_readings_quantiles(summarized_features, readings_array):
     """
     positions = ['-1', '0', '1']
     quantiles = [25, 50, 75]
-    
+    NUM_FEATURES = 3 #Dwell time, SD, Mean
     for pos_idx, pos in enumerate(positions):
-        mean_col = readings_array[:, pos_idx * 3 + 2]
-        sd_col = readings_array[:, pos_idx * 3 + 1]
+        sd_col = readings_array[:, pos_idx * NUM_FEATURES + 1]
+        mean_col = readings_array[:, pos_idx * NUM_FEATURES + 2]
         
         for quant in quantiles:
-            quantile_value = np.percentile(mean_col, quant)
-            summarized_features[f'mean_{quant}_{pos}'] = quantile_value
+            summarized_features[f'mean_{quant}_{pos}'] = np.percentile(mean_col, quant)
             summarized_features[f'sd_{quant}_{pos}'] = np.percentile(sd_col, quant)
     
     return summarized_features
@@ -104,7 +104,7 @@ def encode_nucleotides(df):
     Generate features from the 7-character nucleotide sequence
     """
     WINDOW_SIZE = 5
-    relevant_positions = [0,1,2,5,6]
+    relevant_positions = [0,1,2,5,6] # Positions 3 and 4 are excluded as all of them have the same nucleotide
     # Maintain the list of categorical columns for OneHotEncoding
     categorical_columns = []
     # Generates a column showing the nucleotide at each of the relevant position
@@ -143,19 +143,17 @@ def train_test_split(df, data_info, ratio = 0.1):
 
    
     #Sanity Check
-    print(f"train_test_split working: {df_train.shape[0]+df_test.shape[0]==df.shape[0]} ")
+    print(f"train_test_split working: {df_train.shape[0]+df_test.shape[0]==df.shape[0]}")
     return df_train, df_test
 
-def prepare_dataset_for_training(df_train, df_test, categorical_columns):
+def prepare_train_dataset(df_train, categorical_columns):
     """
-    Split into X and y, and scale X
+    Split into X and y, fit_transform scaler and encoder objects
     """
     # Extract input and output features
     X_train = df_train.drop(columns = ['gene_id','transcript_id','transcript_position','nucleotide_seq','label'])
     y_train = df_train['label']
-    X_test = df_test[[col for col in X_train.columns]]
-    y_test = df_test['label']
-
+    
     #One Hot Encode these categorical columns
     encoder = OneHotEncoder(handle_unknown='ignore')
     X_train_categorical = X_train[categorical_columns]
@@ -164,21 +162,34 @@ def prepare_dataset_for_training(df_train, df_test, categorical_columns):
     # Join these columns back to the original dataframe, removing the original columns
     X_train_encoded = pd.concat([X_train.drop(columns = categorical_columns),train_ohe_df], axis = 1)
 
-    #Repeat with Test columns
+    # Scale input features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_encoded)
+    
+    #Sanity check
+    print(f"prepare_dataset_for_training working: {'label' not in X_train.columns}")
+
+    return X_train_scaled, y_train, encoder, scaler
+
+def prepare_test_dataset(df_test, categorical_columns, encoder, scaler):
+    """
+    Split into X and y, then use fitted scaler and encoder objects to transform
+    """
+    X_test = df_test.drop(columns = ['gene_id','transcript_id','transcript_position','nucleotide_seq','label'])
+    y_test = df_test['label']
+
+    #One hot encode test columns with fitted encoder
     X_test_categorical = X_test[categorical_columns]
     test_ohe_columns = encoder.transform(X_test_categorical)
     test_ohe_df = pd.DataFrame(test_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
     X_test_encoded = pd.concat([X_test.drop(columns = categorical_columns),test_ohe_df], axis = 1)
-
-    # Scale input features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_encoded)
+    #Scale Test dataset
     X_test_scaled = scaler.transform(X_test_encoded)
 
     #Sanity check
-    print(f"prepare_dataset_for_training working: {'label' not in X_train.columns}")
+    print(f"prepare_dataset_for_testing working: {'label' not in X_test.columns}")
 
-    return X_train_scaled, y_train, X_test_scaled, y_test, scaler, encoder
+    return X_test_scaled, y_test
 
 #Hyperparamters
 INITIAL_LEARNING_RATE = 0.001
@@ -275,7 +286,8 @@ def main():
     print("=====Training Model=====")
     data_info = pd.read_csv(args.data_info_dir)
     df_train, df_test = train_test_split(df, data_info)
-    X_train_scaled, y_train, X_test_scaled, y_test, fitted_scaler, fitted_encoder = prepare_dataset_for_training(df_train, df_test, categorical_columns)
+    X_train_scaled, y_train, fitted_encoder , fitted_scaler = prepare_train_dataset(df_train,  categorical_columns)
+    X_test_scaled, y_test = prepare_test_dataset(df_test, categorical_columns, fitted_encoder, fitted_scaler)
     model = initialize_model(X_train_scaled)
     fitted_model = fit_model(model,X_train_scaled, y_train, X_test_scaled, y_test)
     fitted_model.save('fitted_model.h5',save_format='h5')
