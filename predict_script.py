@@ -24,13 +24,14 @@ def get_weighted_readings(summarized_features, readings_array):
     Get Weighted Mean and SD
     """
     positions = ['-1', '0', '1']
-    weighted_means = np.zeros(3)
-    weighted_sds = np.zeros(3)
-    
+    weighted_means = np.zeros(len(positions))
+    weighted_sds = np.zeros(len(positions))
+    NUM_FEATURES = 3 #Dwell time, SD, Mean
+
     for pos_idx, pos in enumerate(positions):
-        dwell_time_col = readings_array[:, pos_idx * 3]
-        mean_col = readings_array[:, pos_idx * 3 + 2]
-        sd_col = readings_array[:, pos_idx * 3 + 1]
+        dwell_time_col = readings_array[:, pos_idx * NUM_FEATURES]
+        sd_col = readings_array[:, pos_idx * NUM_FEATURES + 1]
+        mean_col = readings_array[:, pos_idx * NUM_FEATURES + 2]
         
         total_dwell_time = dwell_time_col.sum()
         
@@ -49,14 +50,13 @@ def get_readings_quantiles(summarized_features, readings_array):
     """
     positions = ['-1', '0', '1']
     quantiles = [25, 50, 75]
-    
+    NUM_FEATURES = 3 #Dwell time, SD, Mean
     for pos_idx, pos in enumerate(positions):
-        mean_col = readings_array[:, pos_idx * 3 + 2]
-        sd_col = readings_array[:, pos_idx * 3 + 1]
+        sd_col = readings_array[:, pos_idx * NUM_FEATURES + 1]
+        mean_col = readings_array[:, pos_idx * NUM_FEATURES + 2]
         
         for quant in quantiles:
-            quantile_value = np.percentile(mean_col, quant)
-            summarized_features[f'mean_{quant}_{pos}'] = quantile_value
+            summarized_features[f'mean_{quant}_{pos}'] = np.percentile(mean_col, quant)
             summarized_features[f'sd_{quant}_{pos}'] = np.percentile(sd_col, quant)
     
     return summarized_features
@@ -101,7 +101,7 @@ def encode_nucleotides(df):
     Generate features from the 7-character nucleotide sequence
     """
     WINDOW_SIZE = 5
-    relevant_positions = [0,1,2,5,6]
+    relevant_positions = [0,1,2,5,6] # Positions 3 and 4 are excluded as all of them have the same nucleotide
     # Maintain the list of categorical columns for OneHotEncoding
     categorical_columns = []
     # Generates a column showing the nucleotide at each of the relevant position
@@ -144,9 +144,10 @@ def prepare_dataset_for_prediction(df_test, scaler, encoder, categorical_columns
 def main():
     parser = argparse.ArgumentParser(description = "Generate predictions for RNA-seq data")
     parser.add_argument("json_data_dir",help = "File path for RNA-seq data (.json)")
-    parser.add_argument("-m","--model", help = "File path for fitted model object (.h5)")
-    parser.add_argument("-s","--scaler", help = "File path for fitted scaler object (.pkl)")
-    parser.add_argument("-e","--encoder",help = "File path for fitted one-hot encoder object (.pkl)")
+    parser.add_argument("output_dir", help = "File path for predictions output (.csv)")
+    parser.add_argument("-m","--model", help = "File path for fitted model object (.h5). Default: models/fitted_model.h5")
+    parser.add_argument("-s","--scaler", help = "File path for fitted scaler object (.pkl). Default: models/fitted_scaler.pkl")
+    parser.add_argument("-e","--encoder",help = "File path for fitted one-hot encoder object (.pkl). Default: models/fitted_encoder.pkl")
     args = parser.parse_args()
 
     if not args.model:
@@ -175,7 +176,7 @@ def main():
     print("=====Generating Predictions=====")
     df['score'] = model.predict(X_test_scaled)
     prediction_df = df[['transcript_id','transcript_position','score']]
-    prediction_df.to_csv('predictions.csv', index = False)
+    prediction_df.to_csv(args.output_dir, index = False)
 
 
 if __name__ == "__main__":

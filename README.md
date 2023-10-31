@@ -5,7 +5,8 @@
 2. SSH into the instance.
 3. Run the following commands
 ```sh
-sudo apt install python3-pip
+sudo apt update
+sudo apt -y install python3-pip
 git clone https://github.com/ben-dom393/teamedward.git
 cd teamedward
 pip install -r requirements.txt
@@ -30,7 +31,7 @@ optional arguments:
 ```
 ## Running Prediction Script on Sample Dataset (~15 seconds)
 ```sh
-python3 predict_script.py sample_dataset.json
+python3 predict_script.py sample_dataset.json predictions.csv
 ```
 Output: `predictions.csv` with the columns transcript_id, transcript_position and score (i.e. probability of m6A modification). Stored in current directory.
 
@@ -40,13 +41,14 @@ Generate predictions for RNA-seq data
 
 positional arguments:
   json_data_dir         File path for RNA-seq data (.json)
+  output_dir            File path for predictions output (.csv)
 
 optional arguments:
   -h, --help            show this help message and exit
   -m MODEL, --model MODEL
-                        File path for fitted Keras model object (.h5). Defaults to models/fitted_model.h5
+                        File path for fitted model object (.h5). Default: models/fitted_model.h5
   -s SCALER, --scaler SCALER
-                        File path for fitted scaler object (.pkl). Defaults to models/fitted_scaler.pkl
+                        File path for fitted scaler object (.pkl). Default: models/fitted_scaler.pkl
   -e ENCODER, --encoder ENCODER
-                        File path for fitted one-hot encoder object (.pkl). Default to models/fitted_encoder.pkl
+                        File path for fitted one-hot encoder object (.pkl). Default: models/fitted_encoder.pkl
 ```
