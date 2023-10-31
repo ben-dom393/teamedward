@@ -20,7 +20,9 @@ Output: Fitted Keras model `fitted_model.h5`, scaler `fitted_scaler.pkl` and one
 
 ## Training Script Manual
 ```sh
-Train a ML model to predict m6A modification
+Description: Train a ML model to predict m6A modification
+
+Usage: train_script.py [-h] json_data_dir data_info_dir
 
 positional arguments:
   json_data_dir  File path for RNA-seq data (.json)
@@ -37,7 +39,9 @@ Output: `predictions.csv` with the columns transcript_id, transcript_position an
 
 ## Prediction Script Manual
 ```sh
-Generate predictions for RNA-seq data
+Description: Generate predictions for RNA-seq data
+
+Usage: predict_script.py [-h] [-m MODEL] [-s SCALER] [-e ENCODER] json_data_dir output_dir
 
 positional arguments:
   json_data_dir         File path for RNA-seq data (.json)

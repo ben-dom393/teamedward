@@ -129,18 +129,16 @@ def train_test_split(df, data_info, ratio = 0.1):
     """
     train_test_split by gene_id, default ratio=0.1 (10% of the dataset used as test)
     """
-    # Split data info along gene_id
-    unique_gene_ids = pd.Series(data_info['gene_id'].unique())
-    num_unique = len(unique_gene_ids)
-    train_gene_id = unique_gene_ids.sample(int(num_unique*(1-ratio)), random_state = 4266)
-    data_info_train = data_info[data_info['gene_id'].isin(train_gene_id)]
-    data_info_test = data_info[~data_info['gene_id'].isin(train_gene_id)]
-    
-    # Join with df
+    # Join with df with info
     df['transcript_position'] = df['transcript_position'].astype(int)
-    df_train = pd.merge(data_info_train, df, on = ['transcript_id','transcript_position'])
-    df_test = pd.merge(data_info_test, df, on = ['transcript_id','transcript_position'])
-
+    df_combined = pd.merge(df, data_info, on = ['transcript_id','transcript_position'])
+    
+    # Split on gene id
+    unique_gene_ids = pd.Series(df_combined['gene_id'].unique())
+    num_unique = len(unique_gene_ids)
+    train_gene_id = unique_gene_ids.sample(int(num_unique*(1-ratio)), random_state=4266)
+    df_train = df_combined[df_combined['gene_id'].isin(train_gene_id)].reset_index(drop = True)
+    df_test  = df_combined[~df_combined['gene_id'].isin(train_gene_id)].reset_index(drop = True)
    
     #Sanity Check
     print(f"train_test_split working: {df_train.shape[0]+df_test.shape[0]==df.shape[0]}")
@@ -161,7 +159,6 @@ def prepare_train_dataset(df_train, categorical_columns):
     train_ohe_df = pd.DataFrame(train_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
     # Join these columns back to the original dataframe, removing the original columns
     X_train_encoded = pd.concat([X_train.drop(columns = categorical_columns),train_ohe_df], axis = 1)
-
     # Scale input features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train_encoded)
@@ -183,6 +180,7 @@ def prepare_test_dataset(df_test, categorical_columns, encoder, scaler):
     test_ohe_columns = encoder.transform(X_test_categorical)
     test_ohe_df = pd.DataFrame(test_ohe_columns.toarray(), columns=encoder.get_feature_names_out(input_features=categorical_columns))
     X_test_encoded = pd.concat([X_test.drop(columns = categorical_columns),test_ohe_df], axis = 1)
+
     #Scale Test dataset
     X_test_scaled = scaler.transform(X_test_encoded)
 
@@ -290,6 +288,7 @@ def main():
     X_test_scaled, y_test = prepare_test_dataset(df_test, categorical_columns, fitted_encoder, fitted_scaler)
     model = initialize_model(X_train_scaled)
     fitted_model = fit_model(model,X_train_scaled, y_train, X_test_scaled, y_test)
+    #Save all output objects
     fitted_model.save('fitted_model.h5',save_format='h5')
     dump(fitted_scaler,open('fitted_scaler.pkl','wb'))
     dump(fitted_encoder,open('fitted_encoder.pkl','wb'))
