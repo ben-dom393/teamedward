@@ -14,19 +14,20 @@ pip install -r requirements.txt
 
 ## Running Training Script on Sample Dataset (~30 seconds)
 ```sh
-python3 train_script.py sample_dataset.json data.info
+python3 train_script.py sample_dataset.json data.info model1
 ```
-Output: Fitted Keras model `fitted_model.h5`, scaler `fitted_scaler.pkl` and one-hot encoder `fitted_encoder.pkl`. Stored in current directory
+Output: Fitted Keras model `model1_model.h5`, scaler `model1_scaler.pkl` and one-hot encoder `model1_encoder.pkl`. Stored in current directory
 
 ## Training Script Manual
 ```sh
 Description: Train a ML model to predict m6A modification
 
-Usage: train_script.py [-h] json_data_dir data_info_dir
+Usage: train_script.py [-h] json_data_dir data_info_dir model_name
 
 positional arguments:
   json_data_dir  File path for RNA-seq data (.json)
   data_info_dir  File path for m6A labels (.info)
+  model_name     Name of model. The scaler and encoder would be named after this as well.
 
 optional arguments:
   -h, --help     show this help message and exit

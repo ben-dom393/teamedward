@@ -276,6 +276,7 @@ def main():
     parser = argparse.ArgumentParser(description = "Train a ML model to predict m6A modification")
     parser.add_argument("json_data_dir",help = "File path for RNA-seq data (.json)")
     parser.add_argument("data_info_dir",help = "File path for m6A labels (.info)")
+    parser.add_argument("model_name", help = "Name of model. The scaler and encoder would follow this name as well.")
     args = parser.parse_args()
     print("=====Preprocessing JSON data=====")
     dictlist = parse_json_data(args.json_data_dir)
@@ -289,9 +290,9 @@ def main():
     model = initialize_model(X_train_scaled)
     fitted_model = fit_model(model,X_train_scaled, y_train, X_test_scaled, y_test)
     #Save all output objects
-    fitted_model.save('fitted_model.h5',save_format='h5')
-    dump(fitted_scaler,open('fitted_scaler.pkl','wb'))
-    dump(fitted_encoder,open('fitted_encoder.pkl','wb'))
+    fitted_model.save(f'{args.model_name}_model.h5',save_format='h5')
+    dump(fitted_scaler,open(f'{args.model_name}_scaler.pkl','wb'))
+    dump(fitted_encoder,open(f'{args.model_name}_encoder.pkl','wb'))
 
 if __name__ == "__main__":
     main()
