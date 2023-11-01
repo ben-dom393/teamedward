@@ -14,9 +14,10 @@ pip install -r requirements.txt
 
 ## Running Training Script on Sample Dataset (~30 seconds)
 ```sh
+# Make sure you are in teamedward/ directory
 python3 train_script.py sample_dataset.json data.info model1
 ```
-Output: Fitted Keras model `model1_model.h5`, scaler `model1_scaler.pkl` and one-hot encoder `model1_encoder.pkl`. Stored in current directory
+Output: Fitted Keras model `model1_model.h5`, scaler `model1_scaler.pkl` and one-hot encoder `model1_encoder.pkl`. Stored in current directory.
 
 ## Training Script Manual
 ```sh
@@ -34,6 +35,7 @@ optional arguments:
 ```
 ## Running Prediction Script on Sample Dataset (~15 seconds)
 ```sh
+# Make sure you are in teamedward/ directory
 python3 predict_script.py sample_dataset.json predictions.csv
 ```
 Output: `predictions.csv` with the columns transcript_id, transcript_position and score (i.e. probability of m6A modification). Stored in current directory.

@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
 import pickle
+import os
 
 def parse_json_data(json_data_dir):
     """
@@ -150,19 +151,21 @@ def main():
     parser.add_argument("-e","--encoder",help = "File path for fitted one-hot encoder object (.pkl). Default: models/fitted_encoder.pkl")
     args = parser.parse_args()
 
+    DEFAULT_MODELS_DIR = "models"
+    
     if not args.model:
-        model = keras.models.load_model('models/fitted_model.h5')
+        model = keras.models.load_model(os.path.join(DEFAULT_MODELS_DIR,'fitted_model.h5'))
     else:
         model = keras.models.load_model(args.model)
 
     if not args.scaler:
-        scaler_file = open('models/fitted_scaler.pkl','rb')
+        scaler_file = open(os.path.join(DEFAULT_MODELS_DIR,'fitted_scaler.pkl'),'rb')
     else:
         scaler_file = open(args.scaler, 'rb')
     scaler = pickle.load(scaler_file)
 
     if not args.encoder:
-        encoder_file = open('models/fitted_encoder.pkl','rb')
+        encoder_file = open(os.path.join(DEFAULT_MODELS_DIR,'fitted_encoder.pkl'),'rb')
     else:
         encoder_file = open(args.encoder,'rb')
     encoder = pickle.load(encoder_file)
