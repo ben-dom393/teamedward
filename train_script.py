@@ -276,7 +276,7 @@ def main():
     parser = argparse.ArgumentParser(description = "Train a ML model to predict m6A modification")
     parser.add_argument("json_data_dir",help = "File path for RNA-seq data (.json)")
     parser.add_argument("data_info_dir",help = "File path for m6A labels (.info)")
-    parser.add_argument("model_name", help = "Name of model. The scaler and encoder would follow this name as well.")
+    parser.add_argument("model_name", help = "Name of model. The scaler and encoder would be named after this as well.")
     args = parser.parse_args()
     print("=====Preprocessing JSON data=====")
     dictlist = parse_json_data(args.json_data_dir)
