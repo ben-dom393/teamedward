@@ -11,28 +11,6 @@ git clone https://github.com/ben-dom393/teamedward.git
 cd teamedward
 pip install -r requirements.txt
 ```
-
-## Running Training Script on Sample Dataset (~30 seconds)
-```sh
-# Make sure you are in teamedward/ directory
-python3 train_script.py sample_dataset.json data.info model1
-```
-Output: Fitted Keras model `model1_model.h5`, scaler `model1_scaler.pkl` and one-hot encoder `model1_encoder.pkl`. Stored in current directory.
-
-## Training Script Manual
-```sh
-Description: Train a ML model to predict m6A modification
-
-Usage: train_script.py [-h] json_data_dir data_info_dir model_name
-
-positional arguments:
-  json_data_dir  File path for RNA-seq data (.json)
-  data_info_dir  File path for m6A labels (.info)
-  model_name     Name of model. The scaler and encoder would be named after this as well.
-
-optional arguments:
-  -h, --help     show this help message and exit
-```
 ## Running Prediction Script on Sample Dataset (~15 seconds)
 ```sh
 # Make sure you are in teamedward/ directory
@@ -58,4 +36,26 @@ optional arguments:
                         File path for fitted scaler object (.pkl). Default: models/fitted_scaler.pkl
   -e ENCODER, --encoder ENCODER
                         File path for fitted one-hot encoder object (.pkl). Default: models/fitted_encoder.pkl
+```
+
+## Running Training Script on Sample Dataset (~30 seconds)
+```sh
+# Make sure you are in teamedward/ directory
+python3 train_script.py sample_dataset.json data.info model1
+```
+Output: Fitted Keras model `model1_model.h5`, scaler `model1_scaler.pkl` and one-hot encoder `model1_encoder.pkl`. Stored in current directory.
+
+## Training Script Manual
+```sh
+Description: Train a ML model to predict m6A modification
+
+Usage: train_script.py [-h] json_data_dir data_info_dir model_name
+
+positional arguments:
+  json_data_dir  File path for RNA-seq data (.json)
+  data_info_dir  File path for m6A labels (.info)
+  model_name     Name of model. The scaler and encoder would be named after this as well.
+
+optional arguments:
+  -h, --help     show this help message and exit
 ```
