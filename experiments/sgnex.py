@@ -9,6 +9,8 @@ from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
 import pickle
 
+## Assumes file is in teamedward/sgnex.py (shifted into experiments to tidy up repository)
+
 def parse_json_data(json_data_dir):
     """
     Converts the raw json dataset into a list of dictionaries
