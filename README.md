@@ -1,7 +1,7 @@
 # teamedward
 
 ## Installation Instructions
-1. Start a Ubuntu 20.04 Large Instance of type t3.large or bigger.
+1. Start a Ubuntu 20.04 Large Instance of type t3.large or bigger with EBSVolumeSize of 100 GB.
 2. SSH into the instance.
 3. Run the following commands
 ```sh
