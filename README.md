@@ -11,7 +11,7 @@ git clone https://github.com/ben-dom393/teamedward.git
 cd teamedward
 pip install -r requirements.txt
 ```
-## Running Prediction Script on Sample Dataset (~15 seconds)
+## Running Prediction Script on Sample Dataset (~10 seconds)
 ```sh
 # Make sure you are in teamedward/ directory
 python3 predict_script.py sample_dataset.json predictions.csv
@@ -38,7 +38,7 @@ optional arguments:
                         File path for fitted one-hot encoder object (.pkl). Default: models/fitted_encoder.pkl
 ```
 
-## Running Training Script on Sample Dataset (~30 seconds)
+## Running Training Script on Sample Dataset (~15 seconds)
 ```sh
 # Make sure you are in teamedward/ directory
 python3 train_script.py sample_dataset.json data.info model1
